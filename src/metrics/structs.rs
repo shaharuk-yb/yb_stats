@@ -154,6 +154,26 @@ pub enum Metrics {
         max: u64,
         total_sum: u64,
     },
+    /// MetricCountSumWithoutPercentile is what serde will use for a countsum such as,
+    /// ``` json
+    ///         {
+    ///             "name": "total_wait_queue_time",
+    ///             "total_count": 0,
+    ///             "min": 0,
+    ///             "mean": 0.0,
+    ///             "max": 0,
+    ///             "total_sum": 0
+    ///         }
+    /// ```
+    MetricCountSumWithoutPercentile {
+        name: String,
+        total_count: u64,
+        min: u64,
+        /// This is a float. All other numbers are u64 numbers.
+        mean: f64,
+        max: u64,
+        total_sum: u64,
+    },
     /// MetricCountSumRows is what serde will use for a countsumrows, such as:
     /// ```json
     ///             {
