@@ -7,7 +7,7 @@ use log::*;
 use anyhow::Result;
 use crate::{metrics, utility};
 use crate::snapshot;
-use crate::metrics::{Metrics::{MetricValue, MetricCountSum, MetricCountSumRows}, MetricEntity, AllMetricEntity, MetricEntityDiff, MetricDiffValues, Attributes, MetricDiffCountSum, MetricDiffCountSumRows};
+use crate::metrics::{Metrics::{MetricValue, MetricCountSum, MetricCountSumRows, MetricCountSumWithoutPercentile}, MetricEntity, AllMetricEntity, MetricEntityDiff, MetricDiffValues, Attributes, MetricDiffCountSum, MetricDiffCountSumRows};
 use crate::Opts;
 
 impl AllMetricEntity {
@@ -190,6 +190,72 @@ impl MetricEntityDiff {
                                 });
                         }
                     MetricCountSum { name, total_count, total_sum, .. } =>
+                        {
+                            let changed_metrics_id = if !*details_enable
+                                && (metricentity.metrics_type.clone() == "table"
+                                || metricentity.metrics_type.clone() == "tablet"
+                                || metricentity.metrics_type.clone() == "cdc"
+                                || metricentity.metrics_type.clone() == "cdcsdk")
+                            {
+                                "-".to_string()
+                            } else {
+                                metricentity.id.clone()
+                            };
+                            self.btreemetricdiffcountsum
+                                .entry((
+                                    metricentity.hostname_port
+                                        .clone()
+                                        .expect("hostname:port should be set"),
+                                    metricentity.metrics_type
+                                        .clone(),
+                                    changed_metrics_id,
+                                    name.clone()
+                                ))
+                                .and_modify(|row| {
+                                    if !*details_enable
+                                        && (metricentity.metrics_type.clone() == "table"
+                                        || metricentity.metrics_type.clone() == "tablet"
+                                        || metricentity.metrics_type.clone() == "cdc"
+                                        || metricentity.metrics_type.clone() == "cdcsdk")
+                                    {
+                                        row.first_total_count += total_count;
+                                        row.first_total_sum += total_sum;
+                                    } else {
+                                        warn!("First snapshot duplicate entry: hostname_port: {}, metrics_type: {}, id: {}, name: {}",
+                                            metricentity.hostname_port
+                                                .clone()
+                                                .expect("hostname:port should be set"),
+                                            metricentity.metrics_type
+                                                .clone(),
+                                            metricentity.id
+                                                .clone(),
+                                            name.clone()
+                                        );
+                                    };
+                                })
+                                .or_insert(MetricDiffCountSum {
+                                    table_name: metricentity.attributes
+                                        .as_ref()
+                                        .unwrap_or(&Attributes::default())
+                                        .table_name
+                                        .as_ref()
+                                        .unwrap_or(&"".to_string())
+                                        .to_string(),
+                                    namespace: metricentity.attributes
+                                        .as_ref()
+                                        .unwrap_or(&Attributes::default())
+                                        .namespace_name
+                                        .as_ref()
+                                        .unwrap_or(&"".to_string())
+                                        .to_string(),
+                                    first_snapshot_time: metricentity.timestamp
+                                        .unwrap_or_default(),
+                                    first_total_count: total_count,
+                                    first_total_sum: total_sum,
+                                    ..Default::default()
+                                });
+                        }
+                    MetricCountSumWithoutPercentile { name, total_count, total_sum, .. } =>
                         {
                             let changed_metrics_id = if !*details_enable
                                 && (metricentity.metrics_type.clone() == "table"
