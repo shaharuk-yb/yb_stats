@@ -189,7 +189,7 @@ impl MetricEntityDiff {
                                     ..Default::default()
                                 });
                         }
-                    MetricCountSum { name, total_count, total_sum, percentile_75, .. } =>
+                    MetricCountSum { name, total_count, total_sum, .. } =>
                         {
                             let changed_metrics_id = if !*details_enable
                                 && (metricentity.metrics_type.clone() == "table"
